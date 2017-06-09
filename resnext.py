@@ -202,8 +202,8 @@ def ResNeXtImageNet(input_shape=None, depth=[3, 4, 6, 3], cardinality=32, width=
 
     # Determine proper input shape
     input_shape = _obtain_input_shape(input_shape,
-                                      default_size=32,
-                                      min_size=8,
+                                      default_size=112,
+                                      min_size=112,
                                       data_format=K.image_data_format(),
                                       include_top=include_top)
 
