@@ -102,7 +102,7 @@ def ResNeXt(input_shape=None, depth=29, cardinality=8, width=4, weight_decay=5e-
     else:
         inputs = img_input
     # Create model.
-    model = Model(inputs, x, name='wide-resnet')
+    model = Model(inputs, x, name='resnext')
 
     # load weights
     if weights == 'cifar10':
@@ -195,11 +195,9 @@ def ResNeXtImageNet(input_shape=None, depth=[3, 4, 6, 3], cardinality=32, width=
         raise ValueError('If using `weights` as CIFAR 10 with `include_top`'
                          ' as true, `classes` should be 10')
 
-    if type(depth) == int:
-        if (depth - 2) % 9 != 0:
-            raise ValueError('Depth of the network must be such that (depth - 2)'
-                             'should be divisible by 9.')
-
+    if type(depth) == int and (depth - 2) % 9 != 0:
+        raise ValueError('Depth of the network must be such that (depth - 2)'
+                         'should be divisible by 9.')
     # Determine proper input shape
     input_shape = _obtain_input_shape(input_shape,
                                       default_size=112,
@@ -224,7 +222,7 @@ def ResNeXtImageNet(input_shape=None, depth=[3, 4, 6, 3], cardinality=32, width=
     else:
         inputs = img_input
     # Create model.
-    model = Model(inputs, x, name='wide-resnet')
+    model = Model(inputs, x, name='resnext')
 
     # load weights
     if weights == 'cifar10':
@@ -271,7 +269,13 @@ def ResNeXtImageNet(input_shape=None, depth=[3, 4, 6, 3], cardinality=32, width=
     return model
 
 
-def __initial_conv_block(input, weight_decay):
+def __initial_conv_block(input, weight_decay=5e-4):
+    ''' Adds an initial convolution block, with batch normalization and relu activation
+    Args:
+        input: input tensor
+        weight_decay: weight decay factor
+    Returns: a keras tensor
+    '''
     channel_axis = 1 if K.image_data_format() == 'channels_first' else -1
 
     x = Conv2D(64, (3, 3), padding='same', use_bias=False, kernel_initializer='he_normal',
@@ -282,7 +286,13 @@ def __initial_conv_block(input, weight_decay):
     return x
 
 
-def __initial_conv_block_inception(input, weight_decay):
+def __initial_conv_block_inception(input, weight_decay=5e-4):
+    ''' Adds an initial conv block, with batch norm and relu for the inception resnext
+    Args:
+        input: input tensor
+        weight_decay: weight decay factor
+    Returns: a keras tensor
+    '''
     channel_axis = 1 if K.image_data_format() == 'channels_first' else -1
 
     x = Conv2D(64, (7, 7), padding='same', use_bias=False, kernel_initializer='he_normal',
@@ -295,7 +305,16 @@ def __initial_conv_block_inception(input, weight_decay):
     return x
 
 
-def __grouped_convolution_block(input, grouped_channels, cardinality, strides, weight_decay):
+def __grouped_convolution_block(input, grouped_channels, cardinality, strides, weight_decay=5e-4):
+    ''' Adds a grouped convolution block. It is an equivalent block from the paper
+    Args:
+        input: input tensor
+        grouped_channels: grouped number of filters
+        cardinality: cardinality factor describing the number of groups
+        strides: performs strided convolution for downscaling if > 1
+        weight_decay: weight decay term
+    Returns: a keras tensor
+    '''
     init = input
     channel_axis = 1 if K.image_data_format() == 'channels_first' else -1
 
@@ -320,6 +339,17 @@ def __grouped_convolution_block(input, grouped_channels, cardinality, strides, w
 
 
 def __bottleneck_block(input, filters=64, cardinality=8, width=4, strides=1, weight_decay=5e-4):
+    ''' Adds a bottleneck block
+    Args:
+        input: input tensor
+        filters: number of output filters
+        cardinality: cardinality factor described number of
+            grouped convolutions
+        width: widening factor
+        strides: performs strided convolution for downsampling if > 1
+        weight_decay: weight decay factor
+    Returns: a keras tensor
+    '''
     init = input
 
     grouped_channels = int(filters * (width / 64))
@@ -350,7 +380,7 @@ def __bottleneck_block(input, filters=64, cardinality=8, width=4, strides=1, wei
 
 
 def __create_res_next(nb_classes, img_input, include_top, depth=29, cardinality=8, width=4, weight_decay=5e-4):
-    ''' Creates a Wide Residual Network with specified parameters
+    ''' Creates a ResNeXt model with specified parameters
     Args:
         nb_classes: Number of output classes
         img_input: Input tensor or layer
@@ -409,7 +439,7 @@ def __create_res_next(nb_classes, img_input, include_top, depth=29, cardinality=
 
 
 def __create_res_next_imagenet(nb_classes, img_input, include_top, depth, cardinality=32, width=4, weight_decay=5e-4):
-    ''' Creates a Wide Residual Network with specified parameters
+    ''' Creates a ResNeXt model with specified parameters
     Args:
         nb_classes: Number of output classes
         img_input: Input tensor or layer
