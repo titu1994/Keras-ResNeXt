@@ -11,7 +11,7 @@ import warnings
 from keras.models import Model
 from keras.layers.core import Dense, Activation
 from keras.layers.convolutional import Conv2D
-from keras.layers.pooling import GlobalAveragePooling2D, MaxPooling2D
+from keras.layers.pooling import GlobalAveragePooling2D, GlobalMaxPooling2D, MaxPooling2D
 from keras.layers import Input
 from keras.layers.merge import concatenate, add
 from keras.layers.normalization import BatchNormalization
@@ -22,15 +22,21 @@ from keras.engine.topology import get_source_inputs
 from keras.applications.imagenet_utils import _obtain_input_shape
 import keras.backend as K
 
-TH_WEIGHTS_PATH = ''
-TF_WEIGHTS_PATH = ''
-TH_WEIGHTS_PATH_NO_TOP = ''
-TF_WEIGHTS_PATH_NO_TOP = ''
+
+CIFAR_TH_WEIGHTS_PATH = ''
+CIFAR_TF_WEIGHTS_PATH = ''
+CIFAR_TH_WEIGHTS_PATH_NO_TOP = ''
+CIFAR_TF_WEIGHTS_PATH_NO_TOP = ''
+
+IMAGENET_TH_WEIGHTS_PATH = ''
+IMAGENET_TF_WEIGHTS_PATH = ''
+IMAGENET_TH_WEIGHTS_PATH_NO_TOP = ''
+IMAGENET_TF_WEIGHTS_PATH_NO_TOP = ''
 
 
-def ResNeXt(input_shape=None, depth=29, cardinality=8, width=4, weight_decay=5e-4,
+def ResNext(input_shape=None, depth=29, cardinality=8, width=64, weight_decay=5e-4,
             include_top=True, weights=None, input_tensor=None,
-            classes=10):
+            pooling=None, classes=10):
     """Instantiate the ResNeXt architecture. Note that ,
         when using TensorFlow for best performance you should set
         `image_data_format="channels_last"` in your Keras config
@@ -57,6 +63,17 @@ def ResNeXt(input_shape=None, depth=29, cardinality=8, width=4, weight_decay=5e-
                 It should have exactly 3 inputs channels,
                 and width and height should be no smaller than 8.
                 E.g. `(200, 200, 3)` would be one valid value.
+            pooling: Optional pooling mode for feature extraction
+                when `include_top` is `False`.
+                - `None` means that the output of the model will be
+                    the 4D tensor output of the
+                    last convolutional layer.
+                - `avg` means that global average pooling
+                    will be applied to the output of the
+                    last convolutional layer, and thus
+                    the output of the model will be a 2D tensor.
+                - `max` means that global max pooling will
+                    be applied.
             classes: optional number of classes to classify images
                 into, only to be specified if `include_top` is True, and
                 if no `weights` argument is specified.
@@ -93,7 +110,8 @@ def ResNeXt(input_shape=None, depth=29, cardinality=8, width=4, weight_decay=5e-
         else:
             img_input = input_tensor
 
-    x = __create_res_next(classes, img_input, include_top, depth, cardinality, width, weight_decay)
+    x = __create_res_next(classes, img_input, include_top, depth, cardinality, width,
+                          weight_decay, pooling)
 
     # Ensure that the model takes into account
     # any potential predecessors of `input_tensor`.
@@ -106,17 +124,17 @@ def ResNeXt(input_shape=None, depth=29, cardinality=8, width=4, weight_decay=5e-
 
     # load weights
     if weights == 'cifar10':
-        if (depth == 29) and (cardinality == 8) and (width == 4):
+        if (depth == 29) and (cardinality == 8) and (width == 64):
             # Default parameters match. Weights for this model exist:
 
             if K.image_data_format() == 'channels_first':
                 if include_top:
-                    weights_path = get_file('resnext_8_16_th_dim_ordering_th_kernels.h5',
-                                            TH_WEIGHTS_PATH,
+                    weights_path = get_file('resnext_cifar_10_8_64_th_dim_ordering_th_kernels.h5',
+                                            CIFAR_TH_WEIGHTS_PATH,
                                             cache_subdir='models')
                 else:
-                    weights_path = get_file('resnext_8_16_th_dim_ordering_th_kernels_no_top.h5',
-                                            TH_WEIGHTS_PATH_NO_TOP,
+                    weights_path = get_file('resnext_cifar_10_8_64_th_dim_ordering_th_kernels_no_top.h5',
+                                            CIFAR_TH_WEIGHTS_PATH_NO_TOP,
                                             cache_subdir='models')
 
                 model.load_weights(weights_path)
@@ -133,12 +151,12 @@ def ResNeXt(input_shape=None, depth=29, cardinality=8, width=4, weight_decay=5e-
                     convert_all_kernels_in_model(model)
             else:
                 if include_top:
-                    weights_path = get_file('resnext_8_16_tf_dim_ordering_tf_kernels.h5',
-                                            TF_WEIGHTS_PATH,
+                    weights_path = get_file('resnext_cifar_10_8_64_tf_dim_ordering_tf_kernels.h5',
+                                            CIFAR_TF_WEIGHTS_PATH,
                                             cache_subdir='models')
                 else:
-                    weights_path = get_file('resnext_8_16_tf_dim_ordering_tf_kernels_no_top.h5',
-                                            TF_WEIGHTS_PATH_NO_TOP,
+                    weights_path = get_file('resnext_cifar_10_8_64_tf_dim_ordering_tf_kernels_no_top.h5',
+                                            CIFAR_TF_WEIGHTS_PATH_NO_TOP,
                                             cache_subdir='models')
 
                 model.load_weights(weights_path)
@@ -149,9 +167,9 @@ def ResNeXt(input_shape=None, depth=29, cardinality=8, width=4, weight_decay=5e-
     return model
 
 
-def ResNeXtImageNet(input_shape=None, depth=[3, 4, 6, 3], cardinality=32, width=8, weight_decay=5e-4,
+def ResNextImageNet(input_shape=None, depth=[3, 4, 6, 3], cardinality=32, width=4, weight_decay=5e-4,
                     include_top=True, weights=None, input_tensor=None,
-                    classes=1001):
+                    pooling=None, classes=1000):
     """ Instantiate the ResNeXt architecture for the ImageNet dataset. Note that ,
         when using TensorFlow for best performance you should set
         `image_data_format="channels_last"` in your Keras config
@@ -161,8 +179,10 @@ def ResNeXtImageNet(input_shape=None, depth=[3, 4, 6, 3], cardinality=32, width=
         convention used by the model is the one
         specified in your Keras config file.
         # Arguments
-            depth: number or layers in the ResNeXt model. Can be an
-                integer or a list of integers.
+            depth: number or layers in the each block, defined as a list.
+                ResNeXt-50 can be defined as [3, 4, 6, 3].
+                ResNeXt-101 can be defined as [3, 4, 23, 3].
+                Defaults is ResNeXt-50.
             cardinality: the size of the set of transformations
             width: multiplier to the ResNeXt width (number of filters)
             weight_decay: weight decay (l2 norm)
@@ -179,6 +199,17 @@ def ResNeXtImageNet(input_shape=None, depth=[3, 4, 6, 3], cardinality=32, width=
                 It should have exactly 3 inputs channels,
                 and width and height should be no smaller than 8.
                 E.g. `(200, 200, 3)` would be one valid value.
+            pooling: Optional pooling mode for feature extraction
+                when `include_top` is `False`.
+                - `None` means that the output of the model will be
+                    the 4D tensor output of the
+                    last convolutional layer.
+                - `avg` means that global average pooling
+                    will be applied to the output of the
+                    last convolutional layer, and thus
+                    the output of the model will be a 2D tensor.
+                - `max` means that global max pooling will
+                    be applied.
             classes: optional number of classes to classify images
                 into, only to be specified if `include_top` is True, and
                 if no `weights` argument is specified.
@@ -191,9 +222,9 @@ def ResNeXtImageNet(input_shape=None, depth=[3, 4, 6, 3], cardinality=32, width=
                          '`None` (random initialization) or `imagenet` '
                          '(pre-training on ImageNet).')
 
-    if weights == 'cifar10' and include_top and classes != 10:
-        raise ValueError('If using `weights` as CIFAR 10 with `include_top`'
-                         ' as true, `classes` should be 10')
+    if weights == 'imagenet' and include_top and classes != 1000:
+        raise ValueError('If using `weights` as imagenet with `include_top`'
+                         ' as true, `classes` should be 1000')
 
     if type(depth) == int and (depth - 2) % 9 != 0:
         raise ValueError('Depth of the network must be such that (depth - 2)'
@@ -213,7 +244,8 @@ def ResNeXtImageNet(input_shape=None, depth=[3, 4, 6, 3], cardinality=32, width=
         else:
             img_input = input_tensor
 
-    x = __create_res_next_imagenet(classes, img_input, include_top, depth, cardinality, width, weight_decay)
+    x = __create_res_next_imagenet(classes, img_input, include_top, depth, cardinality, width,
+                                   weight_decay, pooling)
 
     # Ensure that the model takes into account
     # any potential predecessors of `input_tensor`.
@@ -225,18 +257,18 @@ def ResNeXtImageNet(input_shape=None, depth=[3, 4, 6, 3], cardinality=32, width=
     model = Model(inputs, x, name='resnext')
 
     # load weights
-    if weights == 'cifar10':
-        if (depth == 29) and (cardinality == 8) and (width == 4):
+    if weights == 'imagenet':
+        if (depth == [3, 4, 6, 3]) and (cardinality == 32) and (width == 4):
             # Default parameters match. Weights for this model exist:
 
             if K.image_data_format() == 'channels_first':
                 if include_top:
-                    weights_path = get_file('resnext_8_16_th_dim_ordering_th_kernels.h5',
-                                            TH_WEIGHTS_PATH,
+                    weights_path = get_file('resnext_imagenet_32_4_th_dim_ordering_th_kernels.h5',
+                                            IMAGENET_TH_WEIGHTS_PATH,
                                             cache_subdir='models')
                 else:
-                    weights_path = get_file('resnext_8_16_th_dim_ordering_th_kernels_no_top.h5',
-                                            TH_WEIGHTS_PATH_NO_TOP,
+                    weights_path = get_file('resnext_imagenet_32_4_th_dim_ordering_th_kernels_no_top.h5',
+                                            IMAGENET_TH_WEIGHTS_PATH_NO_TOP,
                                             cache_subdir='models')
 
                 model.load_weights(weights_path)
@@ -253,12 +285,12 @@ def ResNeXtImageNet(input_shape=None, depth=[3, 4, 6, 3], cardinality=32, width=
                     convert_all_kernels_in_model(model)
             else:
                 if include_top:
-                    weights_path = get_file('resnext_8_16_tf_dim_ordering_tf_kernels.h5',
-                                            TF_WEIGHTS_PATH,
+                    weights_path = get_file('resnext_imagenet_32_4_tf_dim_ordering_tf_kernels.h5',
+                                            IMAGENET_TF_WEIGHTS_PATH,
                                             cache_subdir='models')
                 else:
-                    weights_path = get_file('resnext_8_16_tf_dim_ordering_tf_kernels_no_top.h5',
-                                            TF_WEIGHTS_PATH_NO_TOP,
+                    weights_path = get_file('resnext_imagenet_32_4_tf_dim_ordering_tf_kernels_no_top.h5',
+                                            IMAGENET_TF_WEIGHTS_PATH_NO_TOP,
                                             cache_subdir='models')
 
                 model.load_weights(weights_path)
@@ -300,7 +332,7 @@ def __initial_conv_block_inception(input, weight_decay=5e-4):
     x = BatchNormalization(axis=channel_axis)(x)
     x = Activation('relu')(x)
 
-    x = MaxPooling2D((3, 3), strides=(2, 2))(x)
+    x = MaxPooling2D((3, 3), strides=(2, 2), padding='same')(x)
 
     return x
 
@@ -357,19 +389,19 @@ def __bottleneck_block(input, filters=64, cardinality=8, width=4, strides=1, wei
 
     # Check if input number of filters is same as 16 * k, else create convolution2d for this input
     if K.image_data_format() == 'channels_first':
-        if init._keras_shape[1] != grouped_channels * 4:
-            init = Conv2D(grouped_channels * 4, (1, 1), activation='linear', padding='same', strides=(strides, strides),
+        if init._keras_shape[1] != filters * 4:
+            init = Conv2D(filters * 4, (1, 1), activation='linear', padding='same', strides=(strides, strides),
                           use_bias=False, kernel_initializer='he_normal', kernel_regularizer=l2(weight_decay))(init)
             init = BatchNormalization(axis=channel_axis)(init)
     else:
-        if init._keras_shape[-1] != grouped_channels * 4:
-            init = Conv2D(grouped_channels * 4, (1, 1), activation='linear', padding='same', strides=(strides, strides),
+        if init._keras_shape[-1] != filters * 4:
+            init = Conv2D(filters * 4, (1, 1), activation='linear', padding='same', strides=(strides, strides),
                           use_bias=False, kernel_initializer='he_normal', kernel_regularizer=l2(weight_decay))(init)
             init = BatchNormalization(axis=channel_axis)(init)
 
     x = __grouped_convolution_block(input, grouped_channels, cardinality, strides, weight_decay)
 
-    x = Conv2D(grouped_channels * 4, (1, 1), padding='same', use_bias=False, kernel_initializer='he_normal',
+    x = Conv2D(filters * 4, (1, 1), padding='same', use_bias=False, kernel_initializer='he_normal',
                kernel_regularizer=l2(weight_decay))(x)
     x = BatchNormalization(axis=channel_axis)(x)
 
@@ -379,7 +411,8 @@ def __bottleneck_block(input, filters=64, cardinality=8, width=4, strides=1, wei
     return x
 
 
-def __create_res_next(nb_classes, img_input, include_top, depth=29, cardinality=8, width=4, weight_decay=5e-4):
+def __create_res_next(nb_classes, img_input, include_top, depth=29, cardinality=8, width=4,
+                      weight_decay=5e-4, pooling=None):
     ''' Creates a ResNeXt model with specified parameters
     Args:
         nb_classes: Number of output classes
@@ -393,6 +426,17 @@ def __create_res_next(nb_classes, img_input, include_top, depth=29, cardinality=
                Increasing cardinality improves classification accuracy,
         width: Width of the network.
         weight_decay: weight_decay (l2 norm)
+        pooling: Optional pooling mode for feature extraction
+            when `include_top` is `False`.
+            - `None` means that the output of the model will be
+                the 4D tensor output of the
+                last convolutional layer.
+            - `avg` means that global average pooling
+                will be applied to the output of the
+                last convolutional layer, and thus
+                the output of the model will be a 2D tensor.
+            - `max` means that global max pooling will
+                be applied.
     Returns: a Keras Model
     '''
 
@@ -429,16 +473,21 @@ def __create_res_next(nb_classes, img_input, include_top, depth=29, cardinality=
                 x = __bottleneck_block(x, filters_list[block_idx], cardinality, width, strides=1,
                                        weight_decay=weight_decay)
 
-    x = GlobalAveragePooling2D()(x)
-
     if include_top:
+        x = GlobalAveragePooling2D()(x)
         x = Dense(nb_classes, use_bias=False, kernel_regularizer=l2(weight_decay),
                   kernel_initializer='he_normal', activation='softmax')(x)
+    else:
+        if pooling == 'avg':
+            x = GlobalAveragePooling2D()(x)
+        elif pooling == 'max':
+            x = GlobalMaxPooling2D()(x)
 
     return x
 
 
-def __create_res_next_imagenet(nb_classes, img_input, include_top, depth, cardinality=32, width=4, weight_decay=5e-4):
+def __create_res_next_imagenet(nb_classes, img_input, include_top, depth, cardinality=32, width=4,
+                               weight_decay=5e-4, pooling=None):
     ''' Creates a ResNeXt model with specified parameters
     Args:
         nb_classes: Number of output classes
@@ -448,6 +497,17 @@ def __create_res_next_imagenet(nb_classes, img_input, include_top, depth, cardin
                Increasing cardinality improves classification accuracy,
         width: Width of the network.
         weight_decay: weight_decay (l2 norm)
+        pooling: Optional pooling mode for feature extraction
+            when `include_top` is `False`.
+            - `None` means that the output of the model will be
+                the 4D tensor output of the
+                last convolutional layer.
+            - `avg` means that global average pooling
+                will be applied to the output of the
+                last convolutional layer, and thus
+                the output of the model will be a 2D tensor.
+            - `max` means that global max pooling will
+                be applied.
     Returns: a Keras Model
     '''
 
@@ -484,10 +544,14 @@ def __create_res_next_imagenet(nb_classes, img_input, include_top, depth, cardin
                 x = __bottleneck_block(x, filters_list[block_idx], cardinality, width, strides=1,
                                        weight_decay=weight_decay)
 
-    x = GlobalAveragePooling2D()(x)
-
     if include_top:
+        x = GlobalAveragePooling2D()(x)
         x = Dense(nb_classes, use_bias=False, kernel_regularizer=l2(weight_decay),
                   kernel_initializer='he_normal', activation='softmax')(x)
+    else:
+        if pooling == 'avg':
+            x = GlobalAveragePooling2D()(x)
+        elif pooling == 'max':
+            x = GlobalMaxPooling2D()(x)
 
     return x
