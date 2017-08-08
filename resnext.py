@@ -362,7 +362,9 @@ def __grouped_convolution_block(input, grouped_channels, cardinality, strides, w
         return x
 
     for c in range(cardinality):
-        x = Lambda(lambda z: z[:, :, :, c * grouped_channels:(c + 1) * grouped_channels])(input)
+        x = Lambda(lambda z: z[:, :, :, c * grouped_channels:(c + 1) * grouped_channels]
+                   if K.image_data_format() == 'channels_last' else
+                   lambda z: z[:, c * grouped_channels:(c + 1) * grouped_channels, :, :])(input)
 
         x = Conv2D(grouped_channels, (3, 3), padding='same', use_bias=False, strides=(strides, strides),
                    kernel_initializer='he_normal', kernel_regularizer=l2(weight_decay))(x)
