@@ -9,7 +9,8 @@ from __future__ import division
 import warnings
 
 from keras.models import Model
-from keras.layers.core import Dense, Activation
+from keras.layers.core import Dense, Lambda
+from keras.layers.advanced_activations import LeakyReLU
 from keras.layers.convolutional import Conv2D
 from keras.layers.pooling import GlobalAveragePooling2D, GlobalMaxPooling2D, MaxPooling2D
 from keras.layers import Input
@@ -194,8 +195,8 @@ def ResNextImageNet(input_shape=None, depth=[3, 4, 6, 3], cardinality=32, width=
                 to use as image input for the model.
             input_shape: optional shape tuple, only to be specified
                 if `include_top` is False (otherwise the input shape
-                has to be `(32, 32, 3)` (with `tf` dim ordering)
-                or `(3, 32, 32)` (with `th` dim ordering).
+                has to be `(224, 224, 3)` (with `tf` dim ordering)
+                or `(3, 224, 224)` (with `th` dim ordering).
                 It should have exactly 3 inputs channels,
                 and width and height should be no smaller than 8.
                 E.g. `(200, 200, 3)` would be one valid value.
@@ -231,7 +232,7 @@ def ResNextImageNet(input_shape=None, depth=[3, 4, 6, 3], cardinality=32, width=
                          'should be divisible by 9.')
     # Determine proper input shape
     input_shape = _obtain_input_shape(input_shape,
-                                      default_size=112,
+                                      default_size=224,
                                       min_size=112,
                                       data_format=K.image_data_format(),
                                       include_top=include_top)
@@ -313,7 +314,7 @@ def __initial_conv_block(input, weight_decay=5e-4):
     x = Conv2D(64, (3, 3), padding='same', use_bias=False, kernel_initializer='he_normal',
                kernel_regularizer=l2(weight_decay))(input)
     x = BatchNormalization(axis=channel_axis)(x)
-    x = Activation('relu')(x)
+    x = LeakyReLU()(x)
 
     return x
 
@@ -330,7 +331,7 @@ def __initial_conv_block_inception(input, weight_decay=5e-4):
     x = Conv2D(64, (7, 7), padding='same', use_bias=False, kernel_initializer='he_normal',
                kernel_regularizer=l2(weight_decay), strides=(2, 2))(input)
     x = BatchNormalization(axis=channel_axis)(x)
-    x = Activation('relu')(x)
+    x = LeakyReLU()(x)
 
     x = MaxPooling2D((3, 3), strides=(2, 2), padding='same')(x)
 
@@ -352,61 +353,70 @@ def __grouped_convolution_block(input, grouped_channels, cardinality, strides, w
 
     group_list = []
 
-    for c in range(cardinality):
-        x = Conv2D(grouped_channels, (1, 1), padding='same', use_bias=False, kernel_initializer='he_normal',
-                   kernel_regularizer=l2(weight_decay))(init)
+    if cardinality == 1:
+        # with cardinality 1, it is a standard convolution
+        x = Conv2D(grouped_channels, (3, 3), padding='same', use_bias=False, strides=(strides, strides),
+                   kernel_initializer='he_normal', kernel_regularizer=l2(weight_decay))(init)
         x = BatchNormalization(axis=channel_axis)(x)
-        x = Activation('relu')(x)
+        x = LeakyReLU()(x)
+        return x
+
+    for c in range(cardinality):
+        x = Lambda(lambda z: z[:, :, :, c * grouped_channels:(c + 1) * grouped_channels])(input)
 
         x = Conv2D(grouped_channels, (3, 3), padding='same', use_bias=False, strides=(strides, strides),
                    kernel_initializer='he_normal', kernel_regularizer=l2(weight_decay))(x)
-        x = BatchNormalization(axis=channel_axis)(x)
-        x = Activation('relu')(x)
 
         group_list.append(x)
 
     group_merge = concatenate(group_list, axis=channel_axis)
+    x = BatchNormalization(axis=channel_axis)(group_merge)
+    x = LeakyReLU()(x)
 
-    return group_merge
+    return x
 
 
-def __bottleneck_block(input, filters=64, cardinality=8, width=4, strides=1, weight_decay=5e-4):
+def __bottleneck_block(input, filters=64, cardinality=8, strides=1, weight_decay=5e-4):
     ''' Adds a bottleneck block
     Args:
         input: input tensor
         filters: number of output filters
         cardinality: cardinality factor described number of
             grouped convolutions
-        width: widening factor
         strides: performs strided convolution for downsampling if > 1
         weight_decay: weight decay factor
     Returns: a keras tensor
     '''
     init = input
 
-    grouped_channels = int(filters * (width / 64))
+    grouped_channels = int(filters / cardinality)
     channel_axis = 1 if K.image_data_format() == 'channels_first' else -1
 
     # Check if input number of filters is same as 16 * k, else create convolution2d for this input
     if K.image_data_format() == 'channels_first':
-        if init._keras_shape[1] != filters * 4:
-            init = Conv2D(filters * 4, (1, 1), activation='linear', padding='same', strides=(strides, strides),
+        if init._keras_shape[1] != 2 * filters:
+            init = Conv2D(filters * 2, (1, 1), padding='same', strides=(strides, strides),
                           use_bias=False, kernel_initializer='he_normal', kernel_regularizer=l2(weight_decay))(init)
             init = BatchNormalization(axis=channel_axis)(init)
     else:
-        if init._keras_shape[-1] != filters * 4:
-            init = Conv2D(filters * 4, (1, 1), activation='linear', padding='same', strides=(strides, strides),
+        if init._keras_shape[-1] != 2 * filters:
+            init = Conv2D(filters * 2, (1, 1), padding='same', strides=(strides, strides),
                           use_bias=False, kernel_initializer='he_normal', kernel_regularizer=l2(weight_decay))(init)
             init = BatchNormalization(axis=channel_axis)(init)
 
-    x = __grouped_convolution_block(input, grouped_channels, cardinality, strides, weight_decay)
+    x = Conv2D(filters, (1, 1), padding='same', use_bias=False,
+               kernel_initializer='he_normal', kernel_regularizer=l2(weight_decay))(input)
+    x = BatchNormalization(axis=channel_axis)(x)
+    x = LeakyReLU()(x)
 
-    x = Conv2D(filters * 4, (1, 1), padding='same', use_bias=False, kernel_initializer='he_normal',
+    x = __grouped_convolution_block(x, grouped_channels, cardinality, strides, weight_decay)
+
+    x = Conv2D(filters * 2, (1, 1), padding='same', use_bias=False, kernel_initializer='he_normal',
                kernel_regularizer=l2(weight_decay))(x)
     x = BatchNormalization(axis=channel_axis)(x)
 
     x = add([init, x])
-    x = Activation('relu')(x)
+    x = LeakyReLU()(x)
 
     return x
 
@@ -447,7 +457,7 @@ def __create_res_next(nb_classes, img_input, include_top, depth=29, cardinality=
         # Otherwise, default to 3 blocks each of default number of group convolution blocks
         N = [(depth - 2) // 9 for _ in range(3)]
 
-    filters = 64
+    filters = cardinality * width
     filters_list = []
 
     for i in range(len(N)):
@@ -458,7 +468,7 @@ def __create_res_next(nb_classes, img_input, include_top, depth=29, cardinality=
 
     # block 1 (no pooling)
     for i in range(N[0]):
-        x = __bottleneck_block(x, filters_list[0], cardinality, width, strides=1, weight_decay=weight_decay)
+        x = __bottleneck_block(x, filters_list[0], cardinality, strides=1, weight_decay=weight_decay)
 
     N = N[1:]  # remove the first block from block definition list
     filters_list = filters_list[1:]  # remove the first filter from the filter list
@@ -467,10 +477,10 @@ def __create_res_next(nb_classes, img_input, include_top, depth=29, cardinality=
     for block_idx, n_i in enumerate(N):
         for i in range(n_i):
             if i == 0:
-                x = __bottleneck_block(x, filters_list[block_idx], cardinality, width, strides=2,
+                x = __bottleneck_block(x, filters_list[block_idx], cardinality, strides=2,
                                        weight_decay=weight_decay)
             else:
-                x = __bottleneck_block(x, filters_list[block_idx], cardinality, width, strides=1,
+                x = __bottleneck_block(x, filters_list[block_idx], cardinality, strides=1,
                                        weight_decay=weight_decay)
 
     if include_top:
@@ -518,7 +528,7 @@ def __create_res_next_imagenet(nb_classes, img_input, include_top, depth, cardin
         # Otherwise, default to 3 blocks each of default number of group convolution blocks
         N = [(depth - 2) // 9 for _ in range(3)]
 
-    filters = 64
+    filters = cardinality * width
     filters_list = []
 
     for i in range(len(N)):
@@ -529,7 +539,7 @@ def __create_res_next_imagenet(nb_classes, img_input, include_top, depth, cardin
 
     # block 1 (no pooling)
     for i in range(N[0]):
-        x = __bottleneck_block(x, filters_list[0], cardinality, width, strides=1, weight_decay=weight_decay)
+        x = __bottleneck_block(x, filters_list[0], cardinality, strides=1, weight_decay=weight_decay)
 
     N = N[1:]  # remove the first block from block definition list
     filters_list = filters_list[1:]  # remove the first filter from the filter list
@@ -538,10 +548,10 @@ def __create_res_next_imagenet(nb_classes, img_input, include_top, depth, cardin
     for block_idx, n_i in enumerate(N):
         for i in range(n_i):
             if i == 0:
-                x = __bottleneck_block(x, filters_list[block_idx], cardinality, width, strides=2,
+                x = __bottleneck_block(x, filters_list[block_idx], cardinality, strides=2,
                                        weight_decay=weight_decay)
             else:
-                x = __bottleneck_block(x, filters_list[block_idx], cardinality, width, strides=1,
+                x = __bottleneck_block(x, filters_list[block_idx], cardinality, strides=1,
                                        weight_decay=weight_decay)
 
     if include_top:
