@@ -10,7 +10,7 @@ import warnings
 
 from keras.models import Model
 from keras.layers.core import Dense, Lambda
-from keras.layers.advanced_activations import LeakyReLU
+from keras.layers.core import Activation
 from keras.layers.convolutional import Conv2D
 from keras.layers.pooling import GlobalAveragePooling2D, GlobalMaxPooling2D, MaxPooling2D
 from keras.layers import Input
@@ -313,7 +313,7 @@ def __initial_conv_block(input, weight_decay=5e-4):
     x = Conv2D(64, (3, 3), padding='same', use_bias=False, kernel_initializer='he_normal',
                kernel_regularizer=l2(weight_decay))(input)
     x = BatchNormalization(axis=channel_axis)(x)
-    x = LeakyReLU()(x)
+    x = Activation('relu')(x)
 
     return x
 
@@ -330,7 +330,7 @@ def __initial_conv_block_imagenet(input, weight_decay=5e-4):
     x = Conv2D(64, (7, 7), padding='same', use_bias=False, kernel_initializer='he_normal',
                kernel_regularizer=l2(weight_decay), strides=(2, 2))(input)
     x = BatchNormalization(axis=channel_axis)(x)
-    x = LeakyReLU()(x)
+    x = Activation('relu')(x)
 
     x = MaxPooling2D((3, 3), strides=(2, 2), padding='same')(x)
 
@@ -357,7 +357,7 @@ def __grouped_convolution_block(input, grouped_channels, cardinality, strides, w
         x = Conv2D(grouped_channels, (3, 3), padding='same', use_bias=False, strides=(strides, strides),
                    kernel_initializer='he_normal', kernel_regularizer=l2(weight_decay))(init)
         x = BatchNormalization(axis=channel_axis)(x)
-        x = LeakyReLU()(x)
+        x = Activation('relu')(x)
         return x
 
     for c in range(cardinality):
@@ -372,7 +372,7 @@ def __grouped_convolution_block(input, grouped_channels, cardinality, strides, w
 
     group_merge = concatenate(group_list, axis=channel_axis)
     x = BatchNormalization(axis=channel_axis)(group_merge)
-    x = LeakyReLU()(x)
+    x = Activation('relu')(x)
 
     return x
 
@@ -408,7 +408,7 @@ def __bottleneck_block(input, filters=64, cardinality=8, strides=1, weight_decay
     x = Conv2D(filters, (1, 1), padding='same', use_bias=False,
                kernel_initializer='he_normal', kernel_regularizer=l2(weight_decay))(input)
     x = BatchNormalization(axis=channel_axis)(x)
-    x = LeakyReLU()(x)
+    x = Activation('relu')(x)
 
     x = __grouped_convolution_block(x, grouped_channels, cardinality, strides, weight_decay)
 
@@ -417,7 +417,7 @@ def __bottleneck_block(input, filters=64, cardinality=8, strides=1, weight_decay
     x = BatchNormalization(axis=channel_axis)(x)
 
     x = add([init, x])
-    x = LeakyReLU()(x)
+    x = Activation('relu')(x)
 
     return x
 
