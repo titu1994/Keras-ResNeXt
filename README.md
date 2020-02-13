@@ -19,18 +19,18 @@ However, since grouped convolutions are not directly available in Keras, an equi
 For the general ResNeXt model (for all datasets other than ImageNet),
 
 ```
-from resnext import ResNeXt
+from resnext import ResNext
 
-model = ResNeXt(image_shape, depth, cardinality, width, weight_decay)
+model = ResNext(image_shape, depth, cardinality, width, weight_decay)
 ```
 
 For the ResNeXt model which has been optimized for ImageNet,
 
 ```
-from resnext import ResNeXtImageNet
+from resnext import ResNextImageNet
 
 image_shape = (112, 112, 3) if K.image_data_format() == 'channels_last' else (3, 112, 112)
-model = ResNeXtImageNet(image_shape)
+model = ResNextImageNet(image_shape)
 ```
 
 Note, there are other parameters such as depth, cardinality, width and weight_decay just as in the general model, however the defaults are set according to the paper.
