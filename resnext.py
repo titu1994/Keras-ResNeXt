@@ -395,12 +395,12 @@ def __bottleneck_block(input, filters=64, cardinality=8, strides=1, weight_decay
 
     # Check if input number of filters is same as 16 * k, else create convolution2d for this input
     if K.image_data_format() == 'channels_first':
-        if init._keras_shape[1] != 2 * filters:
+        if init.shape[1] != 2 * filters:
             init = Conv2D(filters * 2, (1, 1), padding='same', strides=(strides, strides),
                           use_bias=False, kernel_initializer='he_normal', kernel_regularizer=l2(weight_decay))(init)
             init = BatchNormalization(axis=channel_axis)(init)
     else:
-        if init._keras_shape[-1] != 2 * filters:
+        if init.shape[-1] != 2 * filters:
             init = Conv2D(filters * 2, (1, 1), padding='same', strides=(strides, strides),
                           use_bias=False, kernel_initializer='he_normal', kernel_regularizer=l2(weight_decay))(init)
             init = BatchNormalization(axis=channel_axis)(init)
