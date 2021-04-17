@@ -2,6 +2,13 @@ import setuptools
 
 with open("README.md", "r", encoding="utf-8") as fh:
     long_description = fh.read()
+    
+def _load_requirements(path_dir=_PATH_ROOT, comment_char='#'):
+    with open(os.path.join(path_dir, 'requirements.txt'), 'r') as file:
+        lines = [ln.strip() for ln in file.readlines()]
+    reqs = [ln[:ln.index(comment_char)] if comment_char in ln else ln for ln in lines]
+    reqs = [ln for ln in reqs if ln and not any(s in ln for s in ['http://', 'https://'])]
+    return reqs
 
 setuptools.setup(
     name="resnext-keras",
@@ -23,4 +30,6 @@ setuptools.setup(
     package_dir={"": "src"},
     packages=setuptools.find_packages(where="src"),
     python_requires=">=3.6",
+    setup_requires=[],
+    install_requires=setuptools.parse_requirements('requirements.txt')
 )
