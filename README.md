@@ -14,12 +14,20 @@ However, since grouped convolutions are not directly available in Keras, an equi
 
 ![equivalent blocks](https://github.com/titu1994/Keras-ResNeXt/blob/master/images/equivalent_blocks.PNG?raw=true)
 
+# Requirements
+
+tensorflow > 2.2, keras > 2.0.0, keras_applications
+
+# Installation
+
+Use `pip install git+git://github.com/titu1994/Keras-ResNeXt.git` command to install the package.
+
 # Usage
 
 For the general ResNeXt model (for all datasets other than ImageNet),
 
 ```
-from resnext import ResNext
+from resnext_keras.models import ResNext
 
 model = ResNext(image_shape, depth, cardinality, width, weight_decay)
 ```
@@ -27,7 +35,7 @@ model = ResNext(image_shape, depth, cardinality, width, weight_decay)
 For the ResNeXt model which has been optimized for ImageNet,
 
 ```
-from resnext import ResNextImageNet
+from resnext_keras.models import ResNextImageNet
 
 image_shape = (112, 112, 3) if K.image_data_format() == 'channels_last' else (3, 112, 112)
 model = ResNextImageNet(image_shape)
