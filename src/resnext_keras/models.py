@@ -566,8 +566,3 @@ def __create_res_next_imagenet(nb_classes, img_input, include_top, depth, cardin
             x = GlobalMaxPooling2D()(x)
 
     return x
-
-
-if __name__ == '__main__':
-    model = ResNext((32, 32, 3), depth=29, cardinality=8, width=64)
-    model.summary()

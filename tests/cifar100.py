@@ -7,15 +7,15 @@ import numpy as np
 import sklearn.metrics as metrics
 from keras import backend as K
 from keras.callbacks import ModelCheckpoint, ReduceLROnPlateau
-from keras.datasets import cifar10
+from keras.datasets import cifar100
 from keras.optimizers import Adam
 from keras.preprocessing.image import ImageDataGenerator
 from keras.utils import np_utils
 
-from resnext import ResNeXt
+from resnext_keras.models import ResNeXt
 
 batch_size = 100
-nb_classes = 10
+nb_classes = 100
 nb_epoch = 100
 
 img_rows, img_cols = 32, 32
@@ -36,7 +36,7 @@ model.compile(loss='categorical_crossentropy', optimizer=optimizer, metrics=["ac
 print("Finished compiling")
 print("Building model...")
 
-(trainX, trainY), (testX, testY) = cifar10.load_data()
+(trainX, trainY), (testX, testY) = cifar100.load_data()
 
 trainX = trainX.astype('float32')
 testX = testX.astype('float32')

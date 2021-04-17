@@ -1,10 +1,19 @@
-import setuptools
+#!/usr/bin/env python
+
+import os
+
+from setuptools import find_packages, setup
+
+_PATH_ROOT = os.path.dirname(__file__)
 
 with open("README.md", "r", encoding="utf-8") as fh:
     long_description = fh.read()
+    
+with open("requirements.txt", "r", encoding="utf-8") as fh:
+    install_requires = fh.read()
 
-setuptools.setup(
-    name="keras-resnext", # Replace with your own username
+setup(
+    name="resnext-keras",
     version="0.1",
     author="Somshubra Majumdar",
     author_email="titu1994@gmail.com",
@@ -21,6 +30,8 @@ setuptools.setup(
         "Operating System :: OS Independent",
     ],
     package_dir={"": "src"},
-    packages=setuptools.find_packages(where="src"),
+    packages=find_packages(where="src"),
     python_requires=">=3.6",
+    setup_requires=[],
+    install_requires=install_requires
 )
