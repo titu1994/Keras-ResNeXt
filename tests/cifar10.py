@@ -12,7 +12,7 @@ from keras.optimizers import Adam
 from keras.preprocessing.image import ImageDataGenerator
 from keras.utils import np_utils
 
-from resnext_keras import ResNeXt
+from resnext_keras.models import ResNeXt
 
 batch_size = 100
 nb_classes = 10
