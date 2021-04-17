@@ -2,12 +2,15 @@
 
 import os
 
-from setuptools import find_packages, parse_requirements, setup
+from setuptools import find_packages, setup
 
 _PATH_ROOT = os.path.dirname(__file__)
 
 with open("README.md", "r", encoding="utf-8") as fh:
     long_description = fh.read()
+    
+with open("requirements.txt", "r", encoding="utf-8") as fh:
+    install_requires = fh.read()
 
 setup(
     name="resnext-keras",
@@ -30,5 +33,5 @@ setup(
     packages=find_packages(where="src"),
     python_requires=">=3.6",
     setup_requires=[],
-    install_requires=parse_requirements('requirements.txt')
+    install_requires=install_requires
 )
