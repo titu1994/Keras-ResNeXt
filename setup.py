@@ -4,7 +4,7 @@ with open("README.md", "r", encoding="utf-8") as fh:
     long_description = fh.read()
 
 setuptools.setup(
-    name="keras-resnext", # Replace with your own username
+    name="keras-resnext",
     version="0.1",
     author="Somshubra Majumdar",
     author_email="titu1994@gmail.com",
